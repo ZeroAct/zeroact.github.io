@@ -248,7 +248,8 @@ export default function TetrisPage() {
 
       setLines((prevLines) => {
         const nextLines = prevLines + cleared;
-        const nextLevel = clamp(Math.floor(nextLines / 10) + 1, 1, 20);
+        // Faster leveling: every 5 lines. Difficulty ramps quicker.
+        const nextLevel = clamp(Math.floor(nextLines / 5) + 1, 1, 30);
         levelRef.current = nextLevel;
         setLevel(nextLevel);
         return nextLines;
@@ -422,7 +423,12 @@ export default function TetrisPage() {
       lastTime = time;
       if (statusRef.current === "running") {
         dropCounter += delta;
-        const speedMs = clamp(700 - (levelRef.current - 1) * 45, 110, 700);
+        // Exponential gravity curve: gets hard quickly, but stays playable.
+        const speedMs = clamp(
+          Math.floor(650 * Math.pow(0.86, levelRef.current - 1)),
+          55,
+          650
+        );
         if (dropCounter > speedMs) drop();
       }
       draw();
@@ -520,11 +526,12 @@ export default function TetrisPage() {
             display: "grid",
             gap: "24px",
             gridTemplateColumns: "minmax(0, 1fr) 260px",
-            alignItems: "start",
+            alignItems: "stretch",
           }}
         >
           <div
             ref={boardWrapRef}
+            data-testid="tetris-board-wrap"
             style={{
               background: "#0f172a",
               padding: "16px",
@@ -537,6 +544,35 @@ export default function TetrisPage() {
               placeItems: "center",
             }}
           >
+            <div
+              data-testid="tetris-next"
+              style={{
+                position: "absolute",
+                top: "12px",
+                right: "12px",
+                width: "110px",
+                borderRadius: "14px",
+                border: "1px solid rgba(148, 163, 184, 0.18)",
+                background: "rgba(2, 6, 23, 0.55)",
+                padding: "10px",
+                pointerEvents: "none",
+              }}
+            >
+              <div style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 800 }}>
+                Next
+              </div>
+              <div style={{ marginTop: "8px" }}>
+                <canvas
+                  ref={nextCanvasRef}
+                  style={{
+                    width: "100%",
+                    height: "auto",
+                    display: "block",
+                    imageRendering: "pixelated",
+                  }}
+                />
+              </div>
+            </div>
             <canvas
               ref={canvasRef}
               style={{
@@ -572,6 +608,7 @@ export default function TetrisPage() {
             )}
           </div>
           <aside
+            data-testid="tetris-aside"
             style={{
               background: "#111827",
               padding: "20px",
@@ -579,30 +616,14 @@ export default function TetrisPage() {
               border: "1px solid #1f2937",
               display: "grid",
               gap: "16px",
+              height: "min(74vh, 860px)",
+              overflow: "auto",
             }}
           >
-            <div style={{ display: "grid", gap: "10px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-                <div style={{ fontSize: "14px", color: "#9ca3af" }}>Next</div>
-                <div style={{ fontSize: "14px", color: "#9ca3af" }}>Level {level}</div>
-              </div>
-              <div
-                style={{
-                  background: "#0f172a",
-                  borderRadius: "12px",
-                  border: "1px solid #1f2937",
-                  padding: "10px",
-                }}
-              >
-                <canvas
-                  ref={nextCanvasRef}
-                  style={{
-                    width: "100%",
-                    height: "auto",
-                    display: "block",
-                    imageRendering: "pixelated",
-                  }}
-                />
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+              <div style={{ fontSize: "14px", color: "#9ca3af" }}>Level</div>
+              <div style={{ fontSize: "14px", color: "#e5e7eb", fontWeight: 900 }}>
+                {level}
               </div>
             </div>
             <div>
