@@ -13,8 +13,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    // Prefer PKCE over implicit; callback page supports both for compatibility.
-    flowType: "pkce",
+    // GitHub Pages is static hosting; implicit is more reliable here because it doesn't
+    // require a PKCE code exchange roundtrip that can fail with "invalid flow state".
+    flowType: "implicit",
     // We handle the exchange explicitly on /auth/callback.
     detectSessionInUrl: false,
   },
