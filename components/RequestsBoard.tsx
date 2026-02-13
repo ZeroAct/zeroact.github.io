@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
-import { triageRequest } from "@/components/requestTriage";
 
 type ProfileMini = { username: string; avatar_url: string | null };
 
@@ -55,8 +54,8 @@ export default function RequestsBoard({
   );
   const [updatesEnabled, setUpdatesEnabled] = useState(true);
 
-  const [game, setGame] = useState<"tetris" | "general">("tetris");
-  const [status, setStatus] = useState("open");
+  const [game, setGame] = useState<"tetris" | "general">("general");
+  const [status, setStatus] = useState("all");
 
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -211,7 +210,7 @@ export default function RequestsBoard({
         >
           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "end" }}>
             <label style={{ display: "grid", gap: "6px" }}>
-              <div style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 800 }}>Game</div>
+              <div style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 800 }}>Category</div>
               <select
                 value={game}
                 onChange={(e) => setGame(e.target.value as "tetris" | "general")}
@@ -243,11 +242,11 @@ export default function RequestsBoard({
                   fontWeight: 800,
                 }}
               >
+                <option value="all">All</option>
                 <option value="open">Open</option>
                 <option value="accepted">Accepted</option>
                 <option value="implemented">Implemented</option>
                 <option value="rejected">Rejected</option>
-                <option value="all">All</option>
               </select>
             </label>
 
@@ -413,7 +412,7 @@ export default function RequestsBoard({
               )}
 
               <label style={{ display: "grid", gap: "6px" }}>
-                <div style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 800 }}>Game</div>
+                <div style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 800 }}>Category</div>
                 <select
                   value={game}
                   onChange={(e) => setGame(e.target.value as "tetris" | "general")}
@@ -470,9 +469,7 @@ export default function RequestsBoard({
                   flexWrap: "wrap",
                 }}
               >
-                <div style={{ color: "#94a3b8", fontSize: "13px" }}>
-                  Auto-triage runs after submit (game-only, no harmful suggestions).
-                </div>
+                <div style={{ color: "#94a3b8", fontSize: "13px" }} />
                 <button
                   type="button"
                   onClick={() => createRequest()}
@@ -513,7 +510,6 @@ export default function RequestsBoard({
             const hasVoted = user
               ? (r.feature_request_votes ?? []).some((v) => v.user_id === user.id)
               : false;
-            const triage = triageRequest({ game: r.game, title: r.title, body: r.body });
 
             return (
               <div
@@ -583,33 +579,6 @@ export default function RequestsBoard({
                   >
                     {hasVoted ? "Voted" : "Vote"}
                   </button>
-                </div>
-
-                <div
-                  style={{
-                    borderRadius: "12px",
-                    border: "1px solid rgba(148, 163, 184, 0.14)",
-                    background: "rgba(15, 23, 42, 0.55)",
-                    padding: "10px",
-                    display: "grid",
-                    gap: "6px",
-                  }}
-                >
-                  <div style={{ fontWeight: 900, fontSize: "13px" }}>Auto Review</div>
-                  {triage.ok ? (
-                    <div style={{ color: "#86efac", fontSize: "13px" }}>
-                      Looks game-related and safe to consider.
-                    </div>
-                  ) : (
-                    <div style={{ color: "#fca5a5", fontSize: "13px", lineHeight: 1.4 }}>
-                      {triage.reasons.join(" ")}
-                    </div>
-                  )}
-                  {triage.suggestedTags.length > 0 && (
-                    <div style={{ color: "#94a3b8", fontSize: "12px" }}>
-                      Tags: {triage.suggestedTags.join(", ")}
-                    </div>
-                  )}
                 </div>
 
                 {(r.status !== "open" || (updatesByRequest[r.id]?.length ?? 0) > 0) && (
