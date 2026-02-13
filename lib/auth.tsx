@@ -81,7 +81,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       signInWithGitHub: async (nextPath = "/") => {
         const origin = window.location.origin;
-        const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+        // With `trailingSlash: true` static export, `/auth/callback` may 404 on GitHub Pages.
+        const redirectTo = `${origin}/auth/callback/?next=${encodeURIComponent(nextPath)}`;
         await supabase.auth.signInWithOAuth({
           provider: "github",
           options: {
@@ -104,4 +105,3 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within <AuthProvider />");
   return ctx;
 }
-
