@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 
 const COLS = 10;
 const ROWS = 20;
-const BLOCK = 26;
 
 type Cell = string | 0;
 type Board = Cell[][];
@@ -40,6 +39,7 @@ const clamp = (n: number, min: number, max: number) =>
   Math.max(min, Math.min(max, n));
 
 export default function TetrisPage() {
+  const boardWrapRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const nextCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -62,6 +62,7 @@ export default function TetrisPage() {
   const levelRef = useRef(1);
 
   useEffect(() => {
+    const wrap = boardWrapRef.current;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -74,12 +75,28 @@ export default function TetrisPage() {
     const previewCanvas = nextCanvas;
     const previewCtx = nextCtx;
 
-    canvas.width = COLS * BLOCK;
-    canvas.height = ROWS * BLOCK;
-    if (nextCanvas) {
-      nextCanvas.width = 6 * BLOCK;
-      nextCanvas.height = 6 * BLOCK;
-    }
+    let block = 26;
+    let previewBlock = 22;
+
+    const resize = () => {
+      const w = wrap?.clientWidth ?? window.innerWidth;
+      const h = wrap?.clientHeight ?? Math.floor(window.innerHeight * 0.7);
+      block = clamp(Math.floor(Math.min(w / COLS, h / ROWS)), 10, 44);
+      previewBlock = clamp(Math.floor(block * 0.82), 10, 36);
+
+      gameCanvas.width = COLS * block;
+      gameCanvas.height = ROWS * block;
+
+      if (previewCanvas) {
+        previewCanvas.width = 6 * previewBlock;
+        previewCanvas.height = 6 * previewBlock;
+      }
+    };
+
+    resize();
+    const ro = wrap ? new ResizeObserver(resize) : null;
+    if (ro && wrap) ro.observe(wrap);
+    window.addEventListener("resize", resize);
 
     const createBoard = () =>
       Array.from({ length: ROWS }, () => Array(COLS).fill(0));
@@ -164,7 +181,7 @@ export default function TetrisPage() {
 
     function drawCell(x: number, y: number, color: string) {
       c.fillStyle = color;
-      c.fillRect(x * BLOCK, y * BLOCK, BLOCK - 1, BLOCK - 1);
+      c.fillRect(x * block, y * block, block - 1, block - 1);
     }
 
     function drawGhost() {
@@ -197,9 +214,9 @@ export default function TetrisPage() {
       for (let y = 0; y < shape.length; y += 1) {
         for (let x = 0; x < shape[y].length; x += 1) {
           if (!shape[y][x]) continue;
-          const px = (offsetX + x) * BLOCK;
-          const py = (offsetY + y) * BLOCK;
-          nctx.fillRect(px, py, BLOCK - 1, BLOCK - 1);
+          const px = (offsetX + x) * previewBlock;
+          const py = (offsetY + y) * previewBlock;
+          nctx.fillRect(px, py, previewBlock - 1, previewBlock - 1);
         }
       }
     }
@@ -213,14 +230,14 @@ export default function TetrisPage() {
       c.strokeStyle = "#e5e7eb";
       for (let x = 0; x <= COLS; x += 1) {
         c.beginPath();
-        c.moveTo(x * BLOCK, 0);
-        c.lineTo(x * BLOCK, ROWS * BLOCK);
+        c.moveTo(x * block, 0);
+        c.lineTo(x * block, ROWS * block);
         c.stroke();
       }
       for (let y = 0; y <= ROWS; y += 1) {
         c.beginPath();
-        c.moveTo(0, y * BLOCK);
-        c.lineTo(COLS * BLOCK, y * BLOCK);
+        c.moveTo(0, y * block);
+        c.lineTo(COLS * block, y * block);
         c.stroke();
       }
       c.globalAlpha = 1;
@@ -376,6 +393,8 @@ export default function TetrisPage() {
 
     return () => {
       window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", resize);
+      ro?.disconnect();
       cancelAnimationFrame(animationId);
     };
   }, []);
@@ -422,6 +441,7 @@ export default function TetrisPage() {
           }}
         >
           <div
+            ref={boardWrapRef}
             style={{
               background: "#0f172a",
               padding: "16px",
@@ -429,13 +449,17 @@ export default function TetrisPage() {
               border: "1px solid #1f2937",
               position: "relative",
               overflow: "hidden",
+              height: "min(74vh, 860px)",
+              display: "grid",
+              placeItems: "center",
             }}
           >
             <canvas
               ref={canvasRef}
               style={{
-                width: "100%",
-                height: "auto",
+                width: "auto",
+                height: "100%",
+                maxWidth: "100%",
                 display: "block",
                 imageRendering: "pixelated",
                 touchAction: "none",
