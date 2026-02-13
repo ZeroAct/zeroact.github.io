@@ -62,6 +62,13 @@ export default function RequestsBoard({
   const [submitting, setSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminError, setAdminError] = useState<string | null>(null);
+  const [adminBusyId, setAdminBusyId] = useState<number | null>(null);
+  const [adminDrafts, setAdminDrafts] = useState<
+    Record<number, { status: "open" | "accepted" | "rejected" | "implemented"; note: string }>
+  >({});
+
   const filtered = useMemo(() => {
     return rows.filter((r) => r.game === game && (status === "all" || r.status === status));
   }, [rows, game, status]);
@@ -191,6 +198,73 @@ export default function RequestsBoard({
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsAdmin(false);
+    setAdminError(null);
+    if (!user) return () => {};
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("arcade_admins")
+        .select("user_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error) {
+        // If this fails, we just don't show admin UI.
+        setIsAdmin(false);
+        return;
+      }
+      setIsAdmin(Boolean(data?.user_id));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  async function adminSetStatus(
+    r: RequestRow,
+    nextStatus: "open" | "accepted" | "rejected" | "implemented",
+    note: string
+  ) {
+    if (!user || !isAdmin) return;
+
+    setAdminError(null);
+    setAdminBusyId(r.id);
+    try {
+      const { error: upErr } = await supabase
+        .from("feature_requests")
+        .update({ status: nextStatus })
+        .eq("id", r.id);
+      if (upErr) {
+        const msg = (upErr as unknown as { message?: string }).message ?? String(upErr);
+        setAdminError(`Admin update failed: ${msg}`);
+        return;
+      }
+
+      const trimmed = note.trim();
+      if (trimmed && updatesEnabled) {
+        const { error: insErr } = await supabase.from("feature_request_updates").insert({
+          request_id: r.id,
+          kind: "status",
+          note: trimmed,
+          user_id: user.id,
+        });
+        if (insErr) {
+          const msg = String((insErr as unknown as { message?: string }).message ?? "");
+          if (msg.toLowerCase().includes("does not exist")) setUpdatesEnabled(false);
+          // Status update succeeded; keep going even if notes fail.
+        }
+      }
+
+      await load();
+    } finally {
+      setAdminBusyId(null);
+    }
+  }
 
   const showList = mode === "list" || mode === "both";
   const showCreate = mode === "create" || mode === "both";
@@ -511,6 +585,18 @@ export default function RequestsBoard({
               ? (r.feature_request_votes ?? []).some((v) => v.user_id === user.id)
               : false;
 
+            const draft =
+              adminDrafts[r.id] ??
+              ({
+                status: r.status as "open" | "accepted" | "rejected" | "implemented",
+                note: "",
+              } satisfies { status: "open" | "accepted" | "rejected" | "implemented"; note: string });
+            const needsRejectNote = draft.status === "rejected" && !draft.note.trim();
+            const canAdminSave =
+              isAdmin &&
+              !needsRejectNote &&
+              (draft.status !== (r.status as typeof draft.status) || Boolean(draft.note.trim()));
+
             return (
               <div
                 key={r.id}
@@ -580,6 +666,111 @@ export default function RequestsBoard({
                     {hasVoted ? "Voted" : "Vote"}
                   </button>
                 </div>
+
+                {adminError && isAdmin && (
+                  <div style={{ color: "#fca5a5", fontSize: "13px" }}>{adminError}</div>
+                )}
+
+                {isAdmin && (
+                  <div
+                    style={{
+                      borderRadius: "12px",
+                      border: "1px solid rgba(148, 163, 184, 0.14)",
+                      background: "rgba(15, 23, 42, 0.55)",
+                      padding: "10px",
+                      display: "grid",
+                      gap: "10px",
+                    }}
+                  >
+                    <div style={{ fontWeight: 900, fontSize: "13px" }}>Admin</div>
+                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "end" }}>
+                      <label style={{ display: "grid", gap: "6px" }}>
+                        <div style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 800 }}>
+                          Status
+                        </div>
+                        <select
+                          value={draft.status}
+                          onChange={(e) => {
+                            const v = e.target.value as typeof draft.status;
+                            setAdminDrafts((prev) => ({
+                              ...prev,
+                              [r.id]: { ...draft, status: v },
+                            }));
+                          }}
+                          style={{
+                            borderRadius: "12px",
+                            border: "1px solid rgba(148, 163, 184, 0.22)",
+                            background: "rgba(15, 23, 42, 0.7)",
+                            color: "#e5e7eb",
+                            padding: "10px 12px",
+                            fontWeight: 900,
+                          }}
+                        >
+                          <option value="open">open</option>
+                          <option value="accepted">accepted</option>
+                          <option value="implemented">implemented</option>
+                          <option value="rejected">rejected</option>
+                        </select>
+                      </label>
+
+                      <div style={{ flex: "1 1 240px" }}>
+                        <div style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 800 }}>
+                          Note (required for reject)
+                        </div>
+                        <input
+                          value={draft.note}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setAdminDrafts((prev) => ({
+                              ...prev,
+                              [r.id]: { ...draft, note: v },
+                            }));
+                          }}
+                          placeholder={
+                            draft.status === "rejected"
+                              ? "Explain why it was rejected"
+                              : "Optional status/change note"
+                          }
+                          style={{
+                            width: "100%",
+                            marginTop: "6px",
+                            borderRadius: "12px",
+                            border: "1px solid rgba(148, 163, 184, 0.22)",
+                            background: "rgba(15, 23, 42, 0.7)",
+                            color: "#e5e7eb",
+                            padding: "10px 12px",
+                            fontWeight: 700,
+                          }}
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => adminSetStatus(r, draft.status, draft.note)}
+                        disabled={!canAdminSave || adminBusyId === r.id}
+                        style={{
+                          border: "none",
+                          padding: "10px 14px",
+                          borderRadius: "12px",
+                          background: canAdminSave ? "#22c55e" : "rgba(148, 163, 184, 0.22)",
+                          color: "#0b0d12",
+                          fontWeight: 950,
+                          cursor: !canAdminSave || adminBusyId === r.id ? "not-allowed" : "pointer",
+                          opacity: !canAdminSave || adminBusyId === r.id ? 0.55 : 1,
+                        }}
+                        title={
+                          needsRejectNote
+                            ? "Add a note to reject"
+                            : canAdminSave
+                              ? "Update status"
+                              : "No changes"
+                        }
+                      >
+                        {adminBusyId === r.id ? "Saving..." : "Save"}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {(r.status !== "open" || (updatesByRequest[r.id]?.length ?? 0) > 0) && (
                   <div

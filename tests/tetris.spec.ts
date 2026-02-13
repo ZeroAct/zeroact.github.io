@@ -62,6 +62,7 @@ test.describe("Requests", () => {
     await page.waitForLoadState("networkidle");
     await expect(page.getByRole("heading", { name: /requests/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /\+ create/i })).toBeVisible();
+    await expect(page.getByText(/auto review/i)).toHaveCount(0);
     await page.screenshot({ path: "output/playwright/requests.png", fullPage: true });
   });
 
