@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import AuthButton from "@/components/AuthButton";
+import { useAuth } from "@/lib/auth";
+import { supabase } from "@/lib/supabaseClient";
 
 const COLS = 10;
 const ROWS = 20;
@@ -38,6 +41,14 @@ const rotate = (matrix: number[][]) =>
 const clamp = (n: number, min: number, max: number) =>
   Math.max(min, Math.min(max, n));
 
+type LeaderRow = {
+  score: number;
+  lines: number;
+  level: number;
+  created_at: string;
+  profiles: { username: string; avatar_url: string | null } | null;
+};
+
 export default function TetrisPage() {
   const boardWrapRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -60,6 +71,75 @@ export default function TetrisPage() {
   const [lines, setLines] = useState(0);
   const [level, setLevel] = useState(1);
   const levelRef = useRef(1);
+
+  const { user } = useAuth();
+  const [leaderboard, setLeaderboard] = useState<LeaderRow[]>([]);
+  const [leaderboardError, setLeaderboardError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const canSubmit = useMemo(
+    () => Boolean(user) && status === "gameover" && score > 0,
+    [user, status, score]
+  );
+
+  async function refreshLeaderboard() {
+    setLeaderboardError(null);
+    const { data, error } = await supabase
+      .from("scores")
+      .select("score,lines,level,created_at,profiles(username,avatar_url)")
+      .eq("game", "tetris")
+      .order("score", { ascending: false })
+      .limit(20);
+
+    if (error) {
+      setLeaderboardError("Failed to load leaderboard.");
+      return;
+    }
+    const rows = (data ?? []).map((row) => {
+      const anyRow = row as unknown as {
+        score: number;
+        lines: number;
+        level: number;
+        created_at: string;
+        profiles:
+          | { username: string; avatar_url: string | null }
+          | { username: string; avatar_url: string | null }[]
+          | null;
+      };
+      const profiles = Array.isArray(anyRow.profiles)
+        ? anyRow.profiles[0] ?? null
+        : anyRow.profiles ?? null;
+      return { ...anyRow, profiles } satisfies LeaderRow;
+    });
+    setLeaderboard(rows);
+  }
+
+  async function submitScore() {
+    if (!user) return;
+    setSubmitError(null);
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from("scores").insert({
+        game: "tetris",
+        user_id: user.id,
+        score,
+        lines,
+        level,
+      });
+      if (error) {
+        setSubmitError("Failed to submit score.");
+        return;
+      }
+      await refreshLeaderboard();
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  useEffect(() => {
+    void refreshLeaderboard();
+  }, []);
 
   useEffect(() => {
     const wrap = boardWrapRef.current;
@@ -431,6 +511,9 @@ export default function TetrisPage() {
           <p style={{ margin: 0, color: "#9ca3af" }}>
             Keyboard: arrows move/rotate, Space hard drop, P pause, R restart.
           </p>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <AuthButton nextPath="/tetris" />
+          </div>
         </header>
         <div
           style={{
@@ -600,6 +683,117 @@ export default function TetrisPage() {
             >
               Restart (R)
             </button>
+
+            <div
+              style={{
+                borderRadius: "12px",
+                border: "1px solid #1f2937",
+                background: "#0f172a",
+                padding: "12px",
+                display: "grid",
+                gap: "10px",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ fontWeight: 900 }}>Rank</div>
+                <button
+                  type="button"
+                  onClick={() => refreshLeaderboard()}
+                  style={{
+                    border: "1px solid rgba(148, 163, 184, 0.18)",
+                    background: "rgba(148, 163, 184, 0.10)",
+                    color: "#e5e7eb",
+                    borderRadius: "999px",
+                    padding: "6px 10px",
+                    fontSize: "12px",
+                    fontWeight: 900,
+                    cursor: "pointer",
+                  }}
+                >
+                  Refresh
+                </button>
+              </div>
+
+              {!user && (
+                <div style={{ color: "#94a3b8", fontSize: "13px", lineHeight: 1.4 }}>
+                  You can play as a guest. Log in to submit your score to the leaderboard.
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => submitScore()}
+                disabled={!canSubmit || submitting}
+                style={{
+                  border: "none",
+                  padding: "12px 16px",
+                  borderRadius: "12px",
+                  background: canSubmit ? "#22c55e" : "rgba(148, 163, 184, 0.22)",
+                  color: "#0b0d12",
+                  fontWeight: 900,
+                  cursor: !canSubmit || submitting ? "not-allowed" : "pointer",
+                  opacity: !canSubmit || submitting ? 0.55 : 1,
+                }}
+              >
+                {submitting ? "Submitting..." : "Submit Score"}
+              </button>
+
+              {submitError && (
+                <div style={{ color: "#fca5a5", fontSize: "13px" }}>{submitError}</div>
+              )}
+              {leaderboardError && (
+                <div style={{ color: "#fca5a5", fontSize: "13px" }}>{leaderboardError}</div>
+              )}
+
+              <div style={{ display: "grid", gap: "8px" }}>
+                {leaderboard.length === 0 ? (
+                  <div style={{ color: "#94a3b8", fontSize: "13px" }}>
+                    No scores yet.
+                  </div>
+                ) : (
+                  leaderboard.map((row, idx) => (
+                    <div
+                      key={`${row.created_at}-${idx}`}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "24px 1fr auto",
+                        gap: "10px",
+                        alignItems: "center",
+                        padding: "8px 10px",
+                        borderRadius: "12px",
+                        border: "1px solid rgba(148, 163, 184, 0.14)",
+                        background: "rgba(2, 6, 23, 0.35)",
+                      }}
+                    >
+                      <div style={{ color: "#cbd5e1", fontWeight: 900, fontSize: "12px" }}>
+                        {idx + 1}
+                      </div>
+                      <div style={{ overflow: "hidden" }}>
+                        <div
+                          style={{
+                            color: "#e2e8f0",
+                            fontWeight: 900,
+                            fontSize: "13px",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                          title={row.profiles?.username ?? "player"}
+                        >
+                          {row.profiles?.username ?? "player"}
+                        </div>
+                        <div style={{ color: "#94a3b8", fontSize: "12px" }}>
+                          {row.lines} lines, level {row.level}
+                        </div>
+                      </div>
+                      <div style={{ color: "#e5e7eb", fontWeight: 900, fontSize: "13px" }}>
+                        {row.score}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
 
             <div style={{ display: "grid", gap: "10px" }}>
               <div style={{ fontSize: "14px", color: "#9ca3af" }}>Touch Controls</div>

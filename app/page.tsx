@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AuthButton from "@/components/AuthButton";
 
 type Game = {
   title: string;
@@ -152,18 +153,19 @@ export default function Home() {
             >
               ZeroAct Arcade
             </h1>
-            <div
+          <div
+            style={{
+              display: "flex",
+              gap: "10px",
+              alignItems: "center",
+            }}
+          >
+            <AuthButton nextPath="/" />
+            <a
+              href="https://github.com/ZeroAct/zeroact.github.io"
+              target="_blank"
+              rel="noreferrer"
               style={{
-                display: "flex",
-                gap: "10px",
-                alignItems: "center",
-              }}
-            >
-              <a
-                href="https://github.com/ZeroAct/zeroact.github.io"
-                target="_blank"
-                rel="noreferrer"
-                style={{
                   textDecoration: "none",
                   color: "#e2e8f0",
                   background: "rgba(148, 163, 184, 0.12)",
@@ -236,4 +238,3 @@ export default function Home() {
     </div>
   );
 }
-
