@@ -36,7 +36,7 @@ export default function RequestsBoard() {
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<RequestRow[]>([]);
 
-  const [game, setGame] = useState("tetris");
+  const [game, setGame] = useState<"tetris" | "general">("tetris");
   const [status, setStatus] = useState("open");
 
   const [title, setTitle] = useState("");
@@ -137,7 +137,7 @@ export default function RequestsBoard() {
             <div style={{ fontSize: "12px", color: "#94a3b8", fontWeight: 800 }}>Game</div>
             <select
               value={game}
-              onChange={(e) => setGame(e.target.value)}
+              onChange={(e) => setGame(e.target.value as "tetris" | "general")}
               style={{
                 borderRadius: "12px",
                 border: "1px solid rgba(148, 163, 184, 0.22)",
@@ -147,6 +147,7 @@ export default function RequestsBoard() {
                 fontWeight: 800,
               }}
             >
+              <option value="general">General (Homepage)</option>
               <option value="tetris">Tetris</option>
             </select>
           </label>

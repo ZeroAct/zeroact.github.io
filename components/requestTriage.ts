@@ -22,6 +22,13 @@ const BAD_TOPICS = [
 ];
 
 const GAME_TOPICS = [
+  "homepage",
+  "home page",
+  "arcade",
+  "requests",
+  "feature",
+  "navigation",
+  "card",
   "tetris",
   "controls",
   "difficulty",
@@ -71,4 +78,3 @@ export function triageRequest(input: { title: string; body: string; game: string
     suggestedTags: Array.from(new Set(suggestedTags)),
   };
 }
-
