@@ -77,6 +77,7 @@ export default function TetrisPage() {
   const [leaderboardError, setLeaderboardError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showAllLeaders, setShowAllLeaders] = useState(false);
 
   const canSubmit = useMemo(
     () => Boolean(user) && status === "gameover" && score > 0,
@@ -611,13 +612,13 @@ export default function TetrisPage() {
             data-testid="tetris-aside"
             style={{
               background: "#111827",
-              padding: "20px",
+              padding: "16px",
               borderRadius: "16px",
               border: "1px solid #1f2937",
               display: "grid",
-              gap: "16px",
+              gap: "12px",
               height: "min(74vh, 860px)",
-              overflow: "auto",
+              overflow: "hidden",
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
@@ -660,50 +661,40 @@ export default function TetrisPage() {
                 </div>
               </div>
             </div>
-            <div
-              style={{
-                padding: "10px 12px",
-                borderRadius: "999px",
-                background: isPaused ? "#b91c1c" : isGameOver ? "#7c2d12" : "#16a34a",
-                color: "white",
-                textAlign: "center",
-                fontSize: "14px",
-              }}
-            >
-              {isPaused ? "Paused" : isGameOver ? "Game Over" : "Running"}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+              <button
+                type="button"
+                onClick={() => pauseToggleRef.current?.()}
+                disabled={isGameOver}
+                style={{
+                  border: "none",
+                  padding: "12px 12px",
+                  borderRadius: "12px",
+                  background: isPaused ? "#22c55e" : "#60a5fa",
+                  color: "#0b0d12",
+                  fontWeight: 900,
+                  cursor: isGameOver ? "not-allowed" : "pointer",
+                  opacity: isGameOver ? 0.5 : 1,
+                }}
+              >
+                {isPaused ? "Resume (P)" : "Pause (P)"}
+              </button>
+              <button
+                type="button"
+                onClick={() => resetRef.current?.()}
+                style={{
+                  border: "none",
+                  padding: "12px 12px",
+                  borderRadius: "12px",
+                  background: "#f97316",
+                  color: "#0f172a",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                }}
+              >
+                Restart (R)
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => pauseToggleRef.current?.()}
-              disabled={isGameOver}
-              style={{
-                border: "none",
-                padding: "12px 16px",
-                borderRadius: "12px",
-                background: isPaused ? "#22c55e" : "#60a5fa",
-                color: "#0b0d12",
-                fontWeight: 800,
-                cursor: isGameOver ? "not-allowed" : "pointer",
-                opacity: isGameOver ? 0.5 : 1,
-              }}
-            >
-              {isPaused ? "Resume (P)" : "Pause (P)"}
-            </button>
-            <button
-              type="button"
-              onClick={() => resetRef.current?.()}
-              style={{
-                border: "none",
-                padding: "12px 16px",
-                borderRadius: "12px",
-                background: "#f97316",
-                color: "#0f172a",
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
-              Restart (R)
-            </button>
 
             <div
               style={{
@@ -717,22 +708,24 @@ export default function TetrisPage() {
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ fontWeight: 900 }}>Rank</div>
-                <button
-                  type="button"
-                  onClick={() => refreshLeaderboard()}
-                  style={{
-                    border: "1px solid rgba(148, 163, 184, 0.18)",
-                    background: "rgba(148, 163, 184, 0.10)",
-                    color: "#e5e7eb",
-                    borderRadius: "999px",
-                    padding: "6px 10px",
-                    fontSize: "12px",
-                    fontWeight: 900,
-                    cursor: "pointer",
-                  }}
-                >
-                  Refresh
-                </button>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <button
+                    type="button"
+                    onClick={() => refreshLeaderboard()}
+                    style={{
+                      border: "1px solid rgba(148, 163, 184, 0.18)",
+                      background: "rgba(148, 163, 184, 0.10)",
+                      color: "#e5e7eb",
+                      borderRadius: "999px",
+                      padding: "6px 10px",
+                      fontSize: "12px",
+                      fontWeight: 900,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Refresh
+                  </button>
+                </div>
               </div>
 
               {!user && (
@@ -772,7 +765,7 @@ export default function TetrisPage() {
                     No scores yet.
                   </div>
                 ) : (
-                  leaderboard.map((row, idx) => (
+                  (showAllLeaders ? leaderboard : leaderboard.slice(0, 5)).map((row, idx) => (
                     <div
                       key={`${row.created_at}-${idx}`}
                       style={{
@@ -813,12 +806,48 @@ export default function TetrisPage() {
                     </div>
                   ))
                 )}
+                {leaderboard.length > 5 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllLeaders((v) => !v)}
+                    style={{
+                      border: "1px solid rgba(148, 163, 184, 0.18)",
+                      background: "rgba(148, 163, 184, 0.10)",
+                      color: "#e5e7eb",
+                      borderRadius: "12px",
+                      padding: "10px 12px",
+                      fontSize: "13px",
+                      fontWeight: 900,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {showAllLeaders ? "Show less" : "Show all"}
+                  </button>
+                )}
               </div>
             </div>
 
-            <div style={{ display: "grid", gap: "10px" }}>
-              <div style={{ fontSize: "14px", color: "#9ca3af" }}>Touch Controls</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+            <details
+              style={{
+                borderRadius: "12px",
+                border: "1px solid #1f2937",
+                background: "#0f172a",
+                padding: "10px 12px",
+              }}
+            >
+              <summary
+                style={{
+                  cursor: "pointer",
+                  color: "#e5e7eb",
+                  fontWeight: 900,
+                  listStyle: "none",
+                }}
+              >
+                <span style={{ color: "#9ca3af", fontSize: "13px", fontWeight: 900 }}>
+                  Touch Controls
+                </span>
+              </summary>
+              <div style={{ marginTop: "10px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
                 <button
                   type="button"
                   onPointerDown={(e) => {
@@ -911,7 +940,7 @@ export default function TetrisPage() {
                   Hard
                 </button>
               </div>
-            </div>
+            </details>
           </aside>
         </div>
       </div>
