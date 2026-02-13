@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import AuthButton from "@/components/AuthButton";
+import ArcadeNav from "@/components/ArcadeNav";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -511,6 +512,7 @@ export default function TetrisPage() {
           width: "100%",
         }}
       >
+        <ArcadeNav />
         <header style={{ display: "grid", gap: "12px" }}>
           <h1 style={{ fontSize: "clamp(28px, 4vw, 44px)", margin: 0 }}>
             Tetris Sprint

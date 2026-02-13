@@ -1,4 +1,5 @@
 import AuthButton from "@/components/AuthButton";
+import ArcadeNav from "@/components/ArcadeNav";
 import RequestsBoard from "@/components/RequestsBoard";
 
 export default function RequestsPage() {
@@ -14,6 +15,7 @@ export default function RequestsPage() {
       }}
     >
       <div style={{ maxWidth: "1080px", margin: "0 auto", display: "grid", gap: "18px" }}>
+        <ArcadeNav />
         <header style={{ display: "grid", gap: "10px" }}>
           <div
             style={{
@@ -39,4 +41,3 @@ export default function RequestsPage() {
     </div>
   );
 }
-

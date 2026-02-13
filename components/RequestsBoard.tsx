@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
 import { triageRequest } from "@/components/requestTriage";
@@ -42,6 +43,7 @@ export default function RequestsBoard() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return rows.filter((r) => r.game === game && (status === "all" || r.status === status));
@@ -82,6 +84,8 @@ export default function RequestsBoard() {
     if (!title.trim() || !body.trim()) return;
 
     setSubmitting(true);
+    setError(null);
+    setSubmitSuccess(null);
     try {
       const { error } = await supabase.from("feature_requests").insert({
         game,
@@ -95,6 +99,7 @@ export default function RequestsBoard() {
       }
       setTitle("");
       setBody("");
+      setSubmitSuccess("Request submitted.");
       await load();
     } finally {
       setSubmitting(false);
@@ -205,6 +210,58 @@ export default function RequestsBoard() {
               gap: "10px",
             }}
           >
+            {submitSuccess && (
+              <div
+                style={{
+                  borderRadius: "12px",
+                  border: "1px solid rgba(34, 197, 94, 0.25)",
+                  background: "rgba(34, 197, 94, 0.08)",
+                  padding: "10px 12px",
+                  display: "flex",
+                  gap: "10px",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  justifyContent: "space-between",
+                }}
+              >
+                <div style={{ color: "#bbf7d0", fontWeight: 900, fontSize: "13px" }}>
+                  {submitSuccess}
+                </div>
+                <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                  <Link
+                    href="/"
+                    style={{
+                      textDecoration: "none",
+                      border: "1px solid rgba(148, 163, 184, 0.18)",
+                      background: "rgba(148, 163, 184, 0.10)",
+                      color: "#e5e7eb",
+                      borderRadius: "999px",
+                      padding: "8px 12px",
+                      fontSize: "13px",
+                      fontWeight: 900,
+                    }}
+                  >
+                    Go Home
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => setSubmitSuccess(null)}
+                    style={{
+                      border: "1px solid rgba(148, 163, 184, 0.18)",
+                      background: "rgba(2, 6, 23, 0.25)",
+                      color: "#e5e7eb",
+                      borderRadius: "999px",
+                      padding: "8px 12px",
+                      fontSize: "13px",
+                      fontWeight: 900,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
