@@ -48,6 +48,7 @@ export default function RequestsBoard({
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorHint, setErrorHint] = useState<string | null>(null);
   const [rows, setRows] = useState<RequestRow[]>([]);
   const [updatesByRequest, setUpdatesByRequest] = useState<Record<number, RequestUpdateRow[]>>(
     {}
@@ -68,6 +69,7 @@ export default function RequestsBoard({
 
   const load = useCallback(async () => {
     setError(null);
+    setErrorHint(null);
     setLoading(true);
     const { data, error } = await supabase
       .from("feature_requests")
@@ -78,7 +80,14 @@ export default function RequestsBoard({
       .limit(100);
 
     if (error) {
-      setError("Failed to load requests.");
+      console.error("feature_requests load error", error);
+      const msg = (error as unknown as { message?: string }).message ?? String(error);
+      setError(`Failed to load requests: ${msg}`);
+      if (msg.toLowerCase().includes("failed to fetch")) {
+        setErrorHint(
+          `This often means a CORS/network issue. If you're using a custom domain, add "${window.location.origin}" to Supabase API CORS allowed origins.`
+        );
+      }
       setLoading(false);
       return;
     }
@@ -137,6 +146,7 @@ export default function RequestsBoard({
 
     setSubmitting(true);
     setError(null);
+    setErrorHint(null);
     setSubmitSuccess(null);
     try {
       const { error } = await supabase.from("feature_requests").insert({
@@ -147,7 +157,9 @@ export default function RequestsBoard({
         status: "open",
       });
       if (error) {
-        setError("Failed to submit request.");
+        console.error("feature_requests insert error", error);
+        const msg = (error as unknown as { message?: string }).message ?? String(error);
+        setError(`Failed to submit request: ${msg}`);
         return;
       }
       setTitle("");
@@ -486,7 +498,10 @@ export default function RequestsBoard({
         {loading ? (
           <div style={{ color: "#94a3b8" }}>Loading...</div>
         ) : error ? (
-          <div style={{ color: "#fca5a5" }}>{error}</div>
+          <div style={{ display: "grid", gap: "8px" }}>
+            <div style={{ color: "#fca5a5" }}>{error}</div>
+            {errorHint && <div style={{ color: "#94a3b8", fontSize: "13px" }}>{errorHint}</div>}
+          </div>
         ) : filtered.length === 0 ? (
           <div style={{ color: "#94a3b8" }}>No requests match this filter.</div>
         ) : (
