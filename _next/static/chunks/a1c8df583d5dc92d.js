@@ -1,0 +1,12 @@
+(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push(["object"==typeof document?document.currentScript:void 0,66278,e=>{"use strict";var a=e.i(4972),r=e.i(73895),i=e.i(63819);function t(){let[e,t]=(0,r.useState)("Signing you in..."),[n,o]=(0,r.useState)(null);return(0,r.useEffect)(()=>{(async()=>{try{let e=new URL(window.location.href),a=e.searchParams.get("next")||"/",r=e.searchParams.get("error"),n=e.searchParams.get("error_description");if(r){t("Login failed."),o(`Provider error: ${r}${n?`
+${n}`:""}`);return}let s=e.searchParams.get("code"),d=e.searchParams.get("state");if(e.searchParams.delete("next"),s&&d){let{error:r}=await i.supabase.auth.exchangeCodeForSession(e.toString());if(r){t("Login failed."),o(`Supabase exchange error: ${r.message}
+Hint: this often happens if you started login on one domain and the callback landed on another, or if the Redirect URL isn't allowlisted in Supabase.
+URL: ${window.location.href}`);return}window.location.replace(a);return}let c=new URLSearchParams(window.location.hash.startsWith("#")?window.location.hash.slice(1):window.location.hash),l=c.get("access_token"),h=c.get("refresh_token"),g=c.get("token_type"),p=c.get("expires_in");if(l&&h&&g){let{error:e}=await i.supabase.auth.setSession({access_token:l,refresh_token:h});if(e){t("Login failed."),o(`Supabase setSession error: ${e.message}
+URL: ${window.location.href}`);return}window.location.hash="",window.location.replace(a);return}t("Login failed."),o(`Missing OAuth params.
+code present: ${!!s}
+state present: ${!!d}
+access_token in hash: ${!!l}
+refresh_token in hash: ${!!h}
+expires_in: ${p??"n/a"}
+URL: ${window.location.href}`);return}catch{t("Login failed."),o(`Unexpected error.
+URL: ${window.location.href}`)}})()},[]),(0,a.jsx)("div",{style:{minHeight:"100vh",display:"grid",placeItems:"center",padding:"24px",background:"linear-gradient(180deg, #0b1020, #050814)",color:"#e5e7eb",fontFamily:"var(--font-geist-sans)"},children:(0,a.jsxs)("div",{style:{maxWidth:"540px",width:"100%",borderRadius:"16px",border:"1px solid rgba(148, 163, 184, 0.18)",background:"rgba(2, 6, 23, 0.6)",padding:"18px"},children:[(0,a.jsx)("div",{style:{fontWeight:900},children:"GitHub Login"}),(0,a.jsx)("div",{style:{marginTop:"8px",color:"#94a3b8"},children:e}),n&&(0,a.jsx)("pre",{style:{marginTop:"10px",whiteSpace:"pre-wrap",wordBreak:"break-word",color:"#cbd5e1",fontSize:"12px",lineHeight:1.4,background:"rgba(15, 23, 42, 0.65)",border:"1px solid rgba(148, 163, 184, 0.18)",borderRadius:"12px",padding:"10px"},children:n})]})})}e.s(["default",()=>t])}]);
