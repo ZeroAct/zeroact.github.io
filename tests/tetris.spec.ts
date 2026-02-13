@@ -61,6 +61,14 @@ test.describe("Requests", () => {
     await page.goto("/requests/");
     await page.waitForLoadState("networkidle");
     await expect(page.getByRole("heading", { name: /requests/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /\+ create/i })).toBeVisible();
     await page.screenshot({ path: "output/playwright/requests.png", fullPage: true });
+  });
+
+  test("new request page loads", async ({ page }) => {
+    await page.goto("/requests/new/");
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("heading", { name: /new request/i })).toBeVisible();
+    await page.screenshot({ path: "output/playwright/requests-new.png", fullPage: true });
   });
 });

@@ -2,7 +2,7 @@ import AuthButton from "@/components/AuthButton";
 import ArcadeNav from "@/components/ArcadeNav";
 import RequestsBoard from "@/components/RequestsBoard";
 
-export default function RequestsPage() {
+export default function RequestNewPage() {
   return (
     <div
       style={{
@@ -15,7 +15,7 @@ export default function RequestsPage() {
       }}
     >
       <div style={{ maxWidth: "1080px", margin: "0 auto", display: "grid", gap: "18px" }}>
-        <ArcadeNav />
+        <ArcadeNav title="Requests" />
         <header style={{ display: "grid", gap: "10px" }}>
           <div
             style={{
@@ -27,17 +27,18 @@ export default function RequestsPage() {
             }}
           >
             <div style={{ display: "grid", gap: "4px" }}>
-              <h1 style={{ margin: 0, letterSpacing: "-0.04em" }}>Requests</h1>
+              <h1 style={{ margin: 0, letterSpacing: "-0.04em" }}>New Request</h1>
               <div style={{ color: "#94a3b8", fontSize: "14px", lineHeight: 1.4 }}>
-                Suggest game features. Guests can browse; log in to submit and vote.
+                Submit a feature request (login required).
               </div>
             </div>
-            <AuthButton nextPath="/requests/" />
+            <AuthButton nextPath="/requests/new/" />
           </div>
         </header>
 
-        <RequestsBoard mode="list" />
+        <RequestsBoard mode="create" />
       </div>
     </div>
   );
 }
+
