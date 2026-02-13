@@ -89,7 +89,8 @@ export default function TetrisPage() {
     setLeaderboardError(null);
     const { data, error } = await supabase
       .from("scores")
-      .select("score,lines,level,created_at,profiles(username,avatar_url)")
+      // Disambiguate embed when multiple FK relationships exist between tables.
+      .select("score,lines,level,created_at,profiles:profiles!scores_user_id_fkey(username,avatar_url)")
       .eq("game", "tetris")
       .order("score", { ascending: false })
       .limit(20);

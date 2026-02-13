@@ -74,7 +74,8 @@ export default function RequestsBoard({
     const { data, error } = await supabase
       .from("feature_requests")
       .select(
-        "id,game,title,body,status,created_at,user_id,profiles(username,avatar_url),feature_request_votes(user_id)"
+        // Disambiguate embed when multiple FK relationships exist between tables.
+        "id,game,title,body,status,created_at,user_id,profiles:profiles!feature_requests_user_id_fkey(username,avatar_url),feature_request_votes(user_id)"
       )
       .order("created_at", { ascending: false })
       .limit(100);
@@ -112,7 +113,9 @@ export default function RequestsBoard({
       } else if (updatesEnabled) {
         const { data: upd, error: updError } = await supabase
           .from("feature_request_updates")
-          .select("id,request_id,kind,note,created_at,profiles(username,avatar_url)")
+          .select(
+            "id,request_id,kind,note,created_at,profiles:profiles!feature_request_updates_user_id_fkey(username,avatar_url)"
+          )
           .in("request_id", ids)
           .order("created_at", { ascending: false })
           .limit(200);
