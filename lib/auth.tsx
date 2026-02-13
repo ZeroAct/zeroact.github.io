@@ -81,8 +81,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       signInWithGitHub: async (nextPath = "/") => {
         const origin = window.location.origin;
-        // With `trailingSlash: true` static export, `/auth/callback` may 404 on GitHub Pages.
-        const redirectTo = `${origin}/auth/callback/?next=${encodeURIComponent(nextPath)}`;
+        // GitHub Pages static hosting can 404 on extensionless paths without a trailing slash.
+        // Redirecting to the concrete file path is the most robust across hosting setups.
+        const redirectTo = `${origin}/auth/callback/index.html?next=${encodeURIComponent(nextPath)}`;
         await supabase.auth.signInWithOAuth({
           provider: "github",
           options: {
