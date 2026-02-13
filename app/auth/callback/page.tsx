@@ -7,6 +7,13 @@ export default function AuthCallbackPage() {
   const [message, setMessage] = useState("Signing you in...");
   const [details, setDetails] = useState<string | null>(null);
 
+  const parseHashParams = () => {
+    const raw = window.location.hash.startsWith("#")
+      ? window.location.hash.slice(1)
+      : window.location.hash;
+    return new URLSearchParams(raw);
+  };
+
   useEffect(() => {
     const run = async () => {
       try {
@@ -27,23 +34,52 @@ export default function AuthCallbackPage() {
         const state = url.searchParams.get("state");
         url.searchParams.delete("next");
 
-        if (!code || !state) {
-          setMessage("Login failed.");
-          setDetails(
-            `Missing OAuth params.\ncode present: ${Boolean(code)}\nstate present: ${Boolean(state)}\nURL: ${window.location.href}`
-          );
+        // PKCE flow: ?code=...&state=...
+        if (code && state) {
+          const { error } = await supabase.auth.exchangeCodeForSession(url.toString());
+          if (error) {
+            setMessage("Login failed.");
+            setDetails(
+              `Supabase exchange error: ${error.message}\nHint: this often happens if you started login on one domain and the callback landed on another, or if the Redirect URL isn't allowlisted in Supabase.\nURL: ${window.location.href}`
+            );
+            return;
+          }
+          window.location.replace(next);
           return;
         }
 
-        const { error } = await supabase.auth.exchangeCodeForSession(url.toString());
-        if (error) {
-          setMessage("Login failed.");
-          setDetails(
-            `Supabase exchange error: ${error.message}\nHint: this often happens if you started login on one domain and the callback landed on another, or if the Redirect URL isn't allowlisted in Supabase.\nURL: ${window.location.href}`
-          );
+        // Implicit flow compatibility: #access_token=...&refresh_token=...
+        const hash = parseHashParams();
+        const accessToken = hash.get("access_token");
+        const refreshToken = hash.get("refresh_token");
+        const tokenType = hash.get("token_type");
+        const expiresIn = hash.get("expires_in");
+        if (accessToken && refreshToken && tokenType) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (error) {
+            setMessage("Login failed.");
+            setDetails(`Supabase setSession error: ${error.message}\nURL: ${window.location.href}`);
+            return;
+          }
+
+          // Clear token hash from URL for safety, keep ?next=...
+          window.location.hash = "";
+          window.location.replace(next);
           return;
         }
-        window.location.replace(next);
+
+        setMessage("Login failed.");
+        setDetails(
+          `Missing OAuth params.\ncode present: ${Boolean(code)}\nstate present: ${Boolean(
+            state
+          )}\naccess_token in hash: ${Boolean(accessToken)}\nrefresh_token in hash: ${Boolean(
+            refreshToken
+          )}\nexpires_in: ${expiresIn ?? "n/a"}\nURL: ${window.location.href}`
+        );
+        return;
       } catch {
         setMessage("Login failed.");
         setDetails(`Unexpected error.\nURL: ${window.location.href}`);
