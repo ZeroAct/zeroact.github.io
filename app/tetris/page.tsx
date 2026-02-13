@@ -490,6 +490,25 @@ export default function TetrisPage() {
   const isPaused = status === "paused";
   const isGameOver = status === "gameover";
 
+  const panelCard: React.CSSProperties = {
+    borderRadius: "14px",
+    border: "1px solid rgba(148, 163, 184, 0.16)",
+    background: "rgba(2, 6, 23, 0.35)",
+    padding: "12px",
+    display: "grid",
+    gap: "10px",
+  };
+
+  const pill: React.CSSProperties = {
+    borderRadius: "999px",
+    border: "1px solid rgba(148, 163, 184, 0.16)",
+    background: "rgba(148, 163, 184, 0.10)",
+    padding: "6px 10px",
+    fontSize: "12px",
+    fontWeight: 900,
+    color: "#e5e7eb",
+  };
+
   return (
     <div
       style={{
@@ -613,48 +632,51 @@ export default function TetrisPage() {
           <aside
             data-testid="tetris-aside"
             style={{
-              background: "#111827",
+              background:
+                "linear-gradient(180deg, rgba(17, 24, 39, 0.92), rgba(2, 6, 23, 0.85))",
               padding: "16px",
               borderRadius: "16px",
-              border: "1px solid #1f2937",
+              border: "1px solid rgba(148, 163, 184, 0.18)",
               display: "grid",
               gap: "12px",
               height: "min(74vh, 860px)",
               overflow: "hidden",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
-              <div style={{ fontSize: "14px", color: "#9ca3af" }}>Level</div>
-              <div style={{ fontSize: "14px", color: "#e5e7eb", fontWeight: 900 }}>
-                {level}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: "14px", color: "#9ca3af" }}>Score</div>
-              <div style={{ fontSize: "32px", fontWeight: 700 }}>{score}</div>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-              <div
-                style={{
-                  background: "#0f172a",
-                  border: "1px solid #1f2937",
-                  borderRadius: "12px",
-                  padding: "12px",
-                }}
-              >
-                <div style={{ fontSize: "12px", color: "#9ca3af" }}>Lines</div>
-                <div style={{ fontSize: "18px", fontWeight: 800 }}>{lines}</div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "12px",
+              }}
+            >
+              <div style={{ display: "grid", gap: "4px" }}>
+                <div style={{ fontWeight: 950, letterSpacing: "-0.02em" }}>Game Panel</div>
+                <div style={{ color: "#94a3b8", fontSize: "12px", fontWeight: 800 }}>
+                  Quick stats and rank
+                </div>
               </div>
               <div
+                aria-hidden
                 style={{
-                  background: "#0f172a",
-                  border: "1px solid #1f2937",
-                  borderRadius: "12px",
-                  padding: "12px",
+                  height: "10px",
+                  width: "72px",
+                  borderRadius: "999px",
+                  background:
+                    "linear-gradient(90deg, rgba(34, 197, 94, 0.65), rgba(96, 165, 250, 0.65))",
+                  opacity: 0.9,
                 }}
-              >
-                <div style={{ fontSize: "12px", color: "#9ca3af" }}>Status</div>
-                <div style={{ fontSize: "18px", fontWeight: 800 }}>
+              />
+            </div>
+
+            <div style={panelCard}>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ ...pill, background: "rgba(34, 197, 94, 0.16)", borderColor: "rgba(34, 197, 94, 0.22)" }}>
+                  Level {level}
+                </div>
+                <div style={pill}>Lines {lines}</div>
+                <div style={pill}>
                   {status === "running"
                     ? "Running"
                     : status === "paused"
@@ -662,50 +684,60 @@ export default function TetrisPage() {
                       : "Game Over"}
                 </div>
               </div>
+              <div>
+                <div style={{ color: "#94a3b8", fontSize: "12px", fontWeight: 900 }}>
+                  Score
+                </div>
+                <div style={{ fontSize: "34px", fontWeight: 900, letterSpacing: "-0.03em" }}>
+                  {score}
+                </div>
+              </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-              <button
-                type="button"
-                onClick={() => pauseToggleRef.current?.()}
-                disabled={isGameOver}
-                style={{
-                  border: "none",
-                  padding: "12px 12px",
-                  borderRadius: "12px",
-                  background: isPaused ? "#22c55e" : "#60a5fa",
-                  color: "#0b0d12",
-                  fontWeight: 900,
-                  cursor: isGameOver ? "not-allowed" : "pointer",
-                  opacity: isGameOver ? 0.5 : 1,
-                }}
-              >
-                {isPaused ? "Resume (P)" : "Pause (P)"}
-              </button>
-              <button
-                type="button"
-                onClick={() => resetRef.current?.()}
-                style={{
-                  border: "none",
-                  padding: "12px 12px",
-                  borderRadius: "12px",
-                  background: "#f97316",
-                  color: "#0f172a",
-                  fontWeight: 900,
-                  cursor: "pointer",
-                }}
-              >
-                Restart (R)
-              </button>
+
+            <div style={{ ...panelCard, gap: "12px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                <button
+                  type="button"
+                  onClick={() => pauseToggleRef.current?.()}
+                  disabled={isGameOver}
+                  style={{
+                    border: "none",
+                    padding: "12px 12px",
+                    borderRadius: "12px",
+                    background: isPaused ? "#22c55e" : "#60a5fa",
+                    color: "#0b0d12",
+                    fontWeight: 950,
+                    cursor: isGameOver ? "not-allowed" : "pointer",
+                    opacity: isGameOver ? 0.55 : 1,
+                  }}
+                >
+                  {isPaused ? "Resume (P)" : "Pause (P)"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => resetRef.current?.()}
+                  style={{
+                    border: "none",
+                    padding: "12px 12px",
+                    borderRadius: "12px",
+                    background: "#f97316",
+                    color: "#0f172a",
+                    fontWeight: 950,
+                    cursor: "pointer",
+                  }}
+                >
+                  Restart (R)
+                </button>
+              </div>
+              <div style={{ color: "#94a3b8", fontSize: "12px", lineHeight: 1.35 }}>
+                Tip: keep your stack low. Use Space for hard drop.
+              </div>
             </div>
 
             <div
               style={{
-                borderRadius: "12px",
-                border: "1px solid #1f2937",
-                background: "#0f172a",
-                padding: "12px",
-                display: "grid",
-                gap: "10px",
+                ...panelCard,
+                background: "rgba(15, 23, 42, 0.50)",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -730,7 +762,7 @@ export default function TetrisPage() {
                 </div>
               </div>
 
-              {!user && (
+                  {!user && (
                 <div style={{ color: "#94a3b8", fontSize: "13px", lineHeight: 1.4 }}>
                   You can play as a guest. Log in to submit your score to the leaderboard.
                 </div>
@@ -831,9 +863,7 @@ export default function TetrisPage() {
 
             <details
               style={{
-                borderRadius: "12px",
-                border: "1px solid #1f2937",
-                background: "#0f172a",
+                ...panelCard,
                 padding: "10px 12px",
               }}
             >
