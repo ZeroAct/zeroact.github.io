@@ -161,6 +161,21 @@ export default function Home() {
             }}
           >
             <AuthButton nextPath="/" />
+            <Link
+              href="/requests/"
+              style={{
+                textDecoration: "none",
+                color: "#e2e8f0",
+                background: "rgba(148, 163, 184, 0.12)",
+                border: "1px solid rgba(148, 163, 184, 0.18)",
+                borderRadius: "999px",
+                padding: "8px 12px",
+                fontSize: "13px",
+                fontWeight: 800,
+              }}
+            >
+              Requests
+            </Link>
             <a
               href="https://github.com/ZeroAct/zeroact.github.io"
               target="_blank"

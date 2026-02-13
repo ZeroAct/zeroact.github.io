@@ -55,3 +55,12 @@ test.describe("Tetris", () => {
     await page.screenshot({ path: "output/playwright/home.png", fullPage: true });
   });
 });
+
+test.describe("Requests", () => {
+  test("requests page loads", async ({ page }) => {
+    await page.goto("/requests/");
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("heading", { name: /requests/i })).toBeVisible();
+    await page.screenshot({ path: "output/playwright/requests.png", fullPage: true });
+  });
+});
