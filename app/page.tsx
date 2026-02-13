@@ -1,101 +1,681 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+const COLS = 10;
+const ROWS = 20;
+const BLOCK = 26;
+
+type Cell = string | 0;
+type Board = Cell[][];
+
+type PieceDef = {
+  shape: number[][];
+  color: string;
+};
+
+type Piece = {
+  shape: number[][];
+  color: string;
+  x: number;
+  y: number;
+};
+
+type GameStatus = "running" | "paused" | "gameover";
+
+const PIECES: PieceDef[] = [
+  { shape: [[1, 1, 1, 1]], color: "#22c55e" }, // I
+  { shape: [[1, 1], [1, 1]], color: "#f59e0b" }, // O
+  { shape: [[0, 1, 0], [1, 1, 1]], color: "#8b5cf6" }, // T
+  { shape: [[1, 0, 0], [1, 1, 1]], color: "#06b6d4" }, // J
+  { shape: [[0, 0, 1], [1, 1, 1]], color: "#ef4444" }, // L
+  { shape: [[1, 1, 0], [0, 1, 1]], color: "#3b82f6" }, // S
+  { shape: [[0, 1, 1], [1, 1, 0]], color: "#eab308" }, // Z
+];
+
+const rotate = (matrix: number[][]) =>
+  matrix[0].map((_, i) => matrix.map((row) => row[i]).reverse());
+
+const clamp = (n: number, min: number, max: number) =>
+  Math.max(min, Math.min(max, n));
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const nextCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const resetRef = useRef<(() => void) | null>(null);
+  const pauseToggleRef = useRef<(() => void) | null>(null);
+  const inputRef = useRef<{
+    left: () => void;
+    right: () => void;
+    down: () => void;
+    rotate: () => void;
+    hardDrop: () => void;
+  } | null>(null);
+
+  const statusRef = useRef<GameStatus>("running");
+  const [status, setStatus] = useState<GameStatus>("running");
+
+  const [score, setScore] = useState(0);
+  const [lines, setLines] = useState(0);
+  const [level, setLevel] = useState(1);
+  const levelRef = useRef(1);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const c = ctx;
+    const gameCanvas = canvas;
+
+    const nextCanvas = nextCanvasRef.current;
+    const nextCtx = nextCanvas?.getContext("2d") ?? null;
+    const previewCanvas = nextCanvas;
+    const previewCtx = nextCtx;
+
+    canvas.width = COLS * BLOCK;
+    canvas.height = ROWS * BLOCK;
+    if (nextCanvas) {
+      nextCanvas.width = 6 * BLOCK;
+      nextCanvas.height = 6 * BLOCK;
+    }
+
+    const createBoard = () =>
+      Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+
+    let board: Board = createBoard();
+    let current: Piece;
+    let next: Piece;
+
+    let dropCounter = 0;
+    let lastTime = 0;
+    let animationId = 0;
+
+    const makePiece = (def: PieceDef): Piece => {
+      const shape = def.shape.map((row) => row.slice());
+      return {
+        shape,
+        color: def.color,
+        x: Math.floor((COLS - shape[0].length) / 2),
+        y: 0,
+      };
+    };
+
+    const randomPiece = () => makePiece(PIECES[Math.floor(Math.random() * PIECES.length)]);
+
+    const respawn = () => {
+      current = next;
+      current.x = Math.floor((COLS - current.shape[0].length) / 2);
+      current.y = 0;
+      next = randomPiece();
+    };
+
+    function collide(
+      b: Board,
+      piece: { shape: number[][]; x: number; y: number }
+    ) {
+      for (let y = 0; y < piece.shape.length; y += 1) {
+        for (let x = 0; x < piece.shape[y].length; x += 1) {
+          if (!piece.shape[y][x]) continue;
+          const nextX = piece.x + x;
+          const nextY = piece.y + y;
+          if (nextX < 0 || nextX >= COLS || nextY >= ROWS) return true;
+          if (nextY >= 0 && b[nextY][nextX]) return true;
+        }
+      }
+      return false;
+    }
+
+    function merge(b: Board, piece: Piece) {
+      for (let y = 0; y < piece.shape.length; y += 1) {
+        for (let x = 0; x < piece.shape[y].length; x += 1) {
+          if (piece.shape[y][x]) {
+            b[piece.y + y][piece.x + x] = piece.color;
+          }
+        }
+      }
+    }
+
+    function clearLines() {
+      let cleared = 0;
+      for (let y = ROWS - 1; y >= 0; y -= 1) {
+        if (board[y].every(Boolean)) {
+          board.splice(y, 1);
+          board.unshift(Array(COLS).fill(0));
+          cleared += 1;
+          y += 1;
+        }
+      }
+      if (cleared <= 0) return;
+
+      setLines((prevLines) => {
+        const nextLines = prevLines + cleared;
+        const nextLevel = clamp(Math.floor(nextLines / 10) + 1, 1, 20);
+        levelRef.current = nextLevel;
+        setLevel(nextLevel);
+        return nextLines;
+      });
+
+      // Simple scoring: reward multi-line clears.
+      const base = cleared === 1 ? 100 : cleared === 2 ? 300 : cleared === 3 ? 500 : 800;
+      setScore((prev) => prev + base * Math.max(1, levelRef.current));
+    }
+
+    function drawCell(x: number, y: number, color: string) {
+      c.fillStyle = color;
+      c.fillRect(x * BLOCK, y * BLOCK, BLOCK - 1, BLOCK - 1);
+    }
+
+    function drawGhost() {
+      const ghost: Piece = { ...current, shape: current.shape, x: current.x, y: current.y };
+      while (!collide(board, ghost)) ghost.y += 1;
+      ghost.y -= 1;
+
+      c.globalAlpha = 0.22;
+      for (let y = 0; y < ghost.shape.length; y += 1) {
+        for (let x = 0; x < ghost.shape[y].length; x += 1) {
+          if (ghost.shape[y][x]) drawCell(ghost.x + x, ghost.y + y, ghost.color);
+        }
+      }
+      c.globalAlpha = 1;
+    }
+
+    function drawNext() {
+      if (!previewCtx || !previewCanvas) return;
+      const nc = previewCanvas;
+      const nctx = previewCtx;
+
+      nctx.fillStyle = "#0b0d12";
+      nctx.fillRect(0, 0, nc.width, nc.height);
+
+      const shape = next.shape;
+      const offsetX = Math.floor((6 - shape[0].length) / 2);
+      const offsetY = Math.floor((6 - shape.length) / 2);
+      nctx.fillStyle = next.color;
+
+      for (let y = 0; y < shape.length; y += 1) {
+        for (let x = 0; x < shape[y].length; x += 1) {
+          if (!shape[y][x]) continue;
+          const px = (offsetX + x) * BLOCK;
+          const py = (offsetY + y) * BLOCK;
+          nctx.fillRect(px, py, BLOCK - 1, BLOCK - 1);
+        }
+      }
+    }
+
+    function draw() {
+      c.fillStyle = "#0b0d12";
+      c.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+      // Subtle grid.
+      c.globalAlpha = 0.08;
+      c.strokeStyle = "#e5e7eb";
+      for (let x = 0; x <= COLS; x += 1) {
+        c.beginPath();
+        c.moveTo(x * BLOCK, 0);
+        c.lineTo(x * BLOCK, ROWS * BLOCK);
+        c.stroke();
+      }
+      for (let y = 0; y <= ROWS; y += 1) {
+        c.beginPath();
+        c.moveTo(0, y * BLOCK);
+        c.lineTo(COLS * BLOCK, y * BLOCK);
+        c.stroke();
+      }
+      c.globalAlpha = 1;
+
+      for (let y = 0; y < ROWS; y += 1) {
+        for (let x = 0; x < COLS; x += 1) {
+          const cell = board[y][x];
+          if (cell) drawCell(x, y, cell);
+        }
+      }
+
+      drawGhost();
+
+      for (let y = 0; y < current.shape.length; y += 1) {
+        for (let x = 0; x < current.shape[y].length; x += 1) {
+          if (current.shape[y][x]) {
+            drawCell(current.x + x, current.y + y, current.color);
+          }
+        }
+      }
+
+      drawNext();
+    }
+
+    function drop() {
+      if (statusRef.current !== "running") return;
+      current.y += 1;
+      if (collide(board, current)) {
+        current.y -= 1;
+        merge(board, current);
+        clearLines();
+        respawn();
+        if (collide(board, current)) {
+          statusRef.current = "gameover";
+          setStatus("gameover");
+        }
+      }
+      dropCounter = 0;
+    }
+
+    function hardDrop() {
+      if (statusRef.current !== "running") return;
+      while (!collide(board, current)) current.y += 1;
+      current.y -= 1;
+      merge(board, current);
+      clearLines();
+      respawn();
+      if (collide(board, current)) {
+        statusRef.current = "gameover";
+        setStatus("gameover");
+      }
+      dropCounter = 0;
+    }
+
+    function move(dir: number) {
+      if (statusRef.current !== "running") return;
+      current.x += dir;
+      if (collide(board, current)) current.x -= dir;
+    }
+
+    function playerRotate() {
+      if (statusRef.current !== "running") return;
+      const rotated = rotate(current.shape);
+      const original = current.shape;
+      const originalX = current.x;
+      const kicks = [0, -1, 1, -2, 2];
+      for (const offset of kicks) {
+        current.shape = rotated;
+        current.x = originalX + offset;
+        if (!collide(board, current)) return;
+      }
+      current.shape = original;
+      current.x = originalX;
+    }
+
+    function togglePause() {
+      if (statusRef.current === "gameover") return;
+      statusRef.current = statusRef.current === "paused" ? "running" : "paused";
+      setStatus(statusRef.current);
+    }
+
+    function resetGame() {
+      board = createBoard();
+      setScore(0);
+      setLines(0);
+      setLevel(1);
+      levelRef.current = 1;
+      statusRef.current = "running";
+      setStatus("running");
+      dropCounter = 0;
+
+      // Fresh bag.
+      current = randomPiece();
+      next = randomPiece();
+      // Avoid an immediate collision if a piece is tall.
+      current.y = 0;
+      if (collide(board, current)) current.y = -1;
+    }
+
+    function update(time = 0) {
+      const delta = time - lastTime;
+      lastTime = time;
+      if (statusRef.current === "running") {
+        dropCounter += delta;
+        const speedMs = clamp(700 - (levelRef.current - 1) * 45, 110, 700);
+        if (dropCounter > speedMs) drop();
+      }
+      draw();
+      animationId = requestAnimationFrame(update);
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      const handled = [
+        "ArrowLeft",
+        "ArrowRight",
+        "ArrowDown",
+        "ArrowUp",
+        "Space",
+        "KeyP",
+        "KeyR",
+      ].includes(event.code);
+      if (handled) event.preventDefault();
+
+      if (event.code === "ArrowLeft") move(-1);
+      if (event.code === "ArrowRight") move(1);
+      if (event.code === "ArrowDown") drop();
+      if (event.code === "ArrowUp") playerRotate();
+      if (event.code === "Space") hardDrop();
+      if (event.code === "KeyP") togglePause();
+      if (event.code === "KeyR") resetGame();
+    }
+
+    resetRef.current = resetGame;
+    pauseToggleRef.current = togglePause;
+    inputRef.current = {
+      left: () => move(-1),
+      right: () => move(1),
+      down: () => drop(),
+      rotate: () => playerRotate(),
+      hardDrop: () => hardDrop(),
+    };
+
+    // Init game state.
+    current = randomPiece();
+    next = randomPiece();
+    current.y = 0;
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("blur", () => {
+      if (statusRef.current === "running") togglePause();
+    });
+    update();
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      cancelAnimationFrame(animationId);
+    };
+  }, []);
+
+  const isPaused = status === "paused";
+  const isGameOver = status === "gameover";
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "center",
+        background:
+          "radial-gradient(circle at top, #1f2937 0%, #0b0d12 60%)",
+        color: "#e5e7eb",
+        padding: "clamp(16px, 3vw, 32px)",
+        fontFamily: "var(--font-geist-sans)",
+      }}
+    >
+      <div
+        style={{
+          display: "grid",
+          gap: "24px",
+          gridTemplateColumns: "minmax(0, 1fr)",
+          maxWidth: "980px",
+          width: "100%",
+        }}
+      >
+        <header style={{ display: "grid", gap: "12px" }}>
+          <h1 style={{ fontSize: "clamp(28px, 4vw, 44px)", margin: 0 }}>
+            Tetris Sprint
+          </h1>
+          <p style={{ margin: 0, color: "#9ca3af" }}>
+            Keyboard: arrows move/rotate, Space hard drop, P pause, R restart.
+          </p>
+        </header>
+        <div
+          style={{
+            display: "grid",
+            gap: "24px",
+            gridTemplateColumns: "minmax(0, 1fr) 260px",
+            alignItems: "start",
+          }}
+        >
+          <div
+            style={{
+              background: "#0f172a",
+              padding: "16px",
+              borderRadius: "16px",
+              border: "1px solid #1f2937",
+              position: "relative",
+              overflow: "hidden",
+            }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+            <canvas
+              ref={canvasRef}
+              style={{
+                width: "100%",
+                height: "auto",
+                display: "block",
+                imageRendering: "pixelated",
+                touchAction: "none",
+              }}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            {(isPaused || isGameOver) && (
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  display: "grid",
+                  placeItems: "center",
+                  background: "rgba(2, 6, 23, 0.72)",
+                  backdropFilter: "blur(6px)",
+                  padding: "16px",
+                }}
+              >
+                <div style={{ display: "grid", gap: "10px", textAlign: "center" }}>
+                  <div style={{ fontSize: "22px", fontWeight: 800 }}>
+                    {isGameOver ? "Game Over" : "Paused"}
+                  </div>
+                  <div style={{ color: "#cbd5e1", fontSize: "14px" }}>
+                    {isGameOver ? "Press R to restart." : "Press P to resume."}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <aside
+            style={{
+              background: "#111827",
+              padding: "20px",
+              borderRadius: "16px",
+              border: "1px solid #1f2937",
+              display: "grid",
+              gap: "16px",
+            }}
           >
-            Read our docs
-          </a>
+            <div style={{ display: "grid", gap: "10px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+                <div style={{ fontSize: "14px", color: "#9ca3af" }}>Next</div>
+                <div style={{ fontSize: "14px", color: "#9ca3af" }}>Level {level}</div>
+              </div>
+              <div
+                style={{
+                  background: "#0f172a",
+                  borderRadius: "12px",
+                  border: "1px solid #1f2937",
+                  padding: "10px",
+                }}
+              >
+                <canvas
+                  ref={nextCanvasRef}
+                  style={{
+                    width: "100%",
+                    height: "auto",
+                    display: "block",
+                    imageRendering: "pixelated",
+                  }}
+                />
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: "14px", color: "#9ca3af" }}>Score</div>
+              <div style={{ fontSize: "32px", fontWeight: 700 }}>{score}</div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+              <div
+                style={{
+                  background: "#0f172a",
+                  border: "1px solid #1f2937",
+                  borderRadius: "12px",
+                  padding: "12px",
+                }}
+              >
+                <div style={{ fontSize: "12px", color: "#9ca3af" }}>Lines</div>
+                <div style={{ fontSize: "18px", fontWeight: 800 }}>{lines}</div>
+              </div>
+              <div
+                style={{
+                  background: "#0f172a",
+                  border: "1px solid #1f2937",
+                  borderRadius: "12px",
+                  padding: "12px",
+                }}
+              >
+                <div style={{ fontSize: "12px", color: "#9ca3af" }}>Status</div>
+                <div style={{ fontSize: "18px", fontWeight: 800 }}>
+                  {status === "running"
+                    ? "Running"
+                    : status === "paused"
+                      ? "Paused"
+                      : "Game Over"}
+                </div>
+              </div>
+            </div>
+            <div
+              style={{
+                padding: "10px 12px",
+                borderRadius: "999px",
+                background: isPaused ? "#b91c1c" : isGameOver ? "#7c2d12" : "#16a34a",
+                color: "white",
+                textAlign: "center",
+                fontSize: "14px",
+              }}
+            >
+              {isPaused ? "Paused" : isGameOver ? "Game Over" : "Running"}
+            </div>
+            <button
+              type="button"
+              onClick={() => pauseToggleRef.current?.()}
+              disabled={isGameOver}
+              style={{
+                border: "none",
+                padding: "12px 16px",
+                borderRadius: "12px",
+                background: isPaused ? "#22c55e" : "#60a5fa",
+                color: "#0b0d12",
+                fontWeight: 800,
+                cursor: isGameOver ? "not-allowed" : "pointer",
+                opacity: isGameOver ? 0.5 : 1,
+              }}
+            >
+              {isPaused ? "Resume (P)" : "Pause (P)"}
+            </button>
+            <button
+              type="button"
+              onClick={() => resetRef.current?.()}
+              style={{
+                border: "none",
+                padding: "12px 16px",
+                borderRadius: "12px",
+                background: "#f97316",
+                color: "#0f172a",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Restart (R)
+            </button>
+
+            <div style={{ display: "grid", gap: "10px" }}>
+              <div style={{ fontSize: "14px", color: "#9ca3af" }}>Touch Controls</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px" }}>
+                <button
+                  type="button"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    inputRef.current?.left();
+                  }}
+                  style={{
+                    border: "1px solid #1f2937",
+                    background: "#0f172a",
+                    color: "#e5e7eb",
+                    padding: "12px",
+                    borderRadius: "12px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Left
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    inputRef.current?.rotate();
+                  }}
+                  style={{
+                    border: "1px solid #1f2937",
+                    background: "#0f172a",
+                    color: "#e5e7eb",
+                    padding: "12px",
+                    borderRadius: "12px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Rotate
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    inputRef.current?.right();
+                  }}
+                  style={{
+                    border: "1px solid #1f2937",
+                    background: "#0f172a",
+                    color: "#e5e7eb",
+                    padding: "12px",
+                    borderRadius: "12px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Right
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    inputRef.current?.down();
+                  }}
+                  style={{
+                    gridColumn: "span 2",
+                    border: "1px solid #1f2937",
+                    background: "#111827",
+                    color: "#e5e7eb",
+                    padding: "12px",
+                    borderRadius: "12px",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  Soft Drop
+                </button>
+                <button
+                  type="button"
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    inputRef.current?.hardDrop();
+                  }}
+                  style={{
+                    border: "1px solid #1f2937",
+                    background: "#111827",
+                    color: "#e5e7eb",
+                    padding: "12px",
+                    borderRadius: "12px",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  Hard
+                </button>
+              </div>
+            </div>
+          </aside>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
     </div>
   );
 }
