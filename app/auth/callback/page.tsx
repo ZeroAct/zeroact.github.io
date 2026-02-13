@@ -34,8 +34,8 @@ export default function AuthCallbackPage() {
         const state = url.searchParams.get("state");
         url.searchParams.delete("next");
 
-        // PKCE flow: ?code=...&state=...
-        if (code && state) {
+        // PKCE flow: ?code=... (state may be absent depending on provider/config)
+        if (code) {
           const { error } = await supabase.auth.exchangeCodeForSession(url.toString());
           if (error) {
             setMessage("Login failed.");
